@@ -72,6 +72,10 @@ import shutil
 
 import configparser
 import mutagen
+
+from mutagen.easymp4 import EasyMP4
+EasyMP4.RegisterTextKey('website', '\xa9cmt')
+
 from docopt import docopt
 from clint.textui import progress
 
@@ -239,7 +243,8 @@ def get_item(track_url, client_id=CLIENT_ID):
     try:
         item_url = url['resolve'].format(track_url)
 
-        r = requests.get(item_url, params={'client_id': client_id})
+        headers = {'Authorization': 'OAuth {0}'.format(token)} if token else {}
+        r = requests.get(item_url, params={'client_id': client_id}, headers=headers)
         logger.debug(r.url)
         if r.status_code == 403:
             return get_item(track_url, ALT_CLIENT_ID)
@@ -433,7 +438,7 @@ def try_utime(path, filetime):
         logger.error("Cannot update utime of file")
 
 
-def get_filename(track, original_filename=None):
+def get_filename(track, original_filename=None, aac=False):
     invalid_chars = '\/:*?|<>"'
     username = track['user']['username']
     title = track['title'].encode('utf-8', 'ignore').decode('utf8')
@@ -451,7 +456,7 @@ def get_filename(track, original_filename=None):
 
         title = str(int(ts)) + "_" + title
 
-    ext = ".mp3"
+    ext = ".m4a" if aac else ".mp3" # contain aac in m4a to write metadata
     if original_filename is not None:
         original_filename.encode('utf-8', 'ignore').decode('utf8')
         ext = os.path.splitext(original_filename)[1]
@@ -522,28 +527,36 @@ def download_original_file(track, title):
     return (filename, False)
 
 
-def get_track_m3u8(track):
+def get_track_m3u8(track, aac=False):
     url = None
     for transcoding in track['media']['transcodings']:
-        if transcoding['format']['protocol'] == 'hls' \
-                and transcoding['format']['mime_type'] == 'audio/mpeg':
-            url = transcoding['url']
+        if transcoding['format']['protocol'] == 'hls':
+            if (not aac and transcoding['format']['mime_type'] == 'audio/mpeg') \
+                    or (aac and transcoding['format']['mime_type'].startswith('audio/mp4')):
+                url = transcoding['url']
 
     if url is not None:
-        r = requests.get(url, params={'client_id': CLIENT_ID})
+        headers = {'Authorization': 'OAuth {0}'.format(token)} if token else {}
+        r = requests.get(url, params={'client_id': CLIENT_ID}, headers=headers)
         logger.debug(r.url)
         return r.json()['url']
 
 
-def download_hls_mp3(track, title):
-    filename = get_filename(track)
+def download_hls(track, title):
+
+    if arguments['--onlymp3']:
+        aac = False
+    else:
+        aac = any(t['format']['mime_type'].startswith('audio/mp4') for t in track['media']['transcodings'])
+
+    filename = get_filename(track, None, aac)
     logger.debug("filename : {0}".format(filename))
     # Skip if file ID or filename already exists
     if already_downloaded(track, title, filename):
         return (filename, True)
 
     # Get the requests stream
-    url = get_track_m3u8(track)
+    url = get_track_m3u8(track, aac)
     filename_path = os.path.abspath(filename)
 
     subprocess.call(['ffmpeg', '-i', url, '-c', 'copy', filename_path, '-loglevel', 'fatal'])
@@ -577,7 +590,7 @@ def download_track(track, playlist_info=None):
         filename, is_already_downloaded = download_original_file(track, title)
 
     if filename is None:
-        filename, is_already_downloaded = download_hls_mp3(track, title)
+        filename, is_already_downloaded = download_hls(track, title)
 
     # Add the track to the generated m3u playlist file
     if playlist_info:
@@ -605,7 +618,7 @@ def download_track(track, playlist_info=None):
         sys.exit(-1)
 
     # Try to set the metadata
-    if filename.endswith('.mp3') or filename.endswith('.flac'):
+    if filename.endswith('.mp3') or filename.endswith('.flac') or filename.endswith('.m4a'):
         try:
             set_metadata(track, filename, playlist_info)
         except Exception as e:
@@ -751,10 +764,13 @@ def set_metadata(track, filename, playlist_info=None):
                 a['COMM'] = mutagen.id3.COMM(
                     encoding=3, lang=u'ENG', text=track['description']
                 )
+            elif a.__class__ == mutagen.mp4.MP4:
+                a['desc'] = track['description']
         if artwork_url:
             if a.__class__ == mutagen.flac.FLAC:
                 p = mutagen.flac.Picture()
                 p.data = out_file.read()
+                p.mime = 'image/jpeg'
                 p.type = mutagen.id3.PictureType.COVER_FRONT
                 a.add_picture(p)
             elif a.__class__ == mutagen.mp3.MP3:
@@ -762,6 +778,8 @@ def set_metadata(track, filename, playlist_info=None):
                     encoding=3, mime='image/jpeg', type=3,
                     desc='Cover', data=out_file.read()
                 )
+            elif a.__class__ == mutagen.mp4.MP4:
+                a['covr'] = [mutagen.mp4.MP4Cover(out_file.read())]
         a.save()
 
 
