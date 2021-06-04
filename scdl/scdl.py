@@ -7,11 +7,11 @@ Usage:
     scdl -l <track_url> [-a | -f | -C | -t | -p][-c | --force-metadata][-n <maxtracks>]\
 [-o <offset>][--hidewarnings][--debug | --error][--path <path>][--addtofile][--addtimestamp]
 [--onlymp3][--hide-progress][--min-size <size>][--max-size <size>][--remove][--no-album-tag]
-[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--original-art]
+[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--original-art][--no-original]
     scdl me (-s | -a | -f | -t | -p | -m)[-c | --force-metadata][-n <maxtracks>]\
 [-o <offset>][--hidewarnings][--debug | --error][--path <path>][--addtofile][--addtimestamp]
 [--onlymp3][--hide-progress][--min-size <size>][--max-size <size>][--remove]
-[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--no-album-tag][--original-art]
+[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--no-album-tag][--original-art][--no-original]
     scdl -h | --help
     scdl --version
 
@@ -53,6 +53,7 @@ Options:
     --flac                      Convert original files to .flac
     --no-album-tag              On some player track get the same cover art if from the same album, this prevent it
     --original-art              Download original cover art
+    --no-original               Do not download original file; only mp3 or m4a
 """
 
 import logging
@@ -586,7 +587,7 @@ def download_track(track, playlist_info=None):
     # Downloadable track
     filename = None
     is_already_downloaded = False
-    if track['downloadable'] and track['has_downloads_left'] and not arguments['--onlymp3']:
+    if track['downloadable'] and track['has_downloads_left'] and not arguments['--onlymp3'] and not arguments['--no-original']:
         filename, is_already_downloaded = download_original_file(track, title)
 
     if filename is None:
