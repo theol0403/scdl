@@ -461,7 +461,10 @@ def get_filename(track, original_filename=None, aac=False):
     if original_filename is not None:
         original_filename.encode('utf-8', 'ignore').decode('utf8')
         ext = os.path.splitext(original_filename)[1]
-    filename = title[:251] + ext.lower()
+    # get filename to 255 bytes
+    while len(title.encode('utf-8')) > 255 - len(ext.encode('utf-8')):
+        title = title[:-1]
+    filename = title + ext.lower()
     filename = ''.join(c for c in filename if c not in invalid_chars)
     return filename
 
