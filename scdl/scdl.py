@@ -56,37 +56,36 @@ Options:
     --no-original               Do not download original file; only mp3 or m4a
 """
 
+import codecs
+import configparser
 import logging
+import math
+import mimetypes
+
+mimetypes.init()
 import os
+import re
+import shutil
 import signal
 import sys
+import tempfile
 import time
 import warnings
-import math
-import shutil
-import requests
-import re
-import tempfile
-import codecs
-import shlex
-import shutil
 
-import configparser
 import mutagen
-from pathvalidate import sanitize_filename
-
+import requests
 from mutagen.easymp4 import EasyMP4
+from pathvalidate import sanitize_filename
 
 EasyMP4.RegisterTextKey("website", "\xa9cmt")
 
-from docopt import docopt
-from clint.textui import progress
-
-from scdl import __version__, CLIENT_ID, ALT_CLIENT_ID
-from scdl import client, utils
-
-from datetime import datetime
 import subprocess
+from datetime import datetime
+
+from clint.textui import progress
+from docopt import docopt
+
+from scdl import ALT_CLIENT_ID, CLIENT_ID, __version__, client, utils
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -484,6 +483,13 @@ def download_original_file(track, title):
     # Find filename
     d = r.headers.get("content-disposition")
     filename = re.findall("filename=(.+)", d)[0]
+    filename, ext = os.path.splitext(filename)
+
+    # Find file extension
+    mime = r.headers.get("content-type")
+    ext = mimetypes.guess_extension(mime) or ext
+    filename += ext
+
     filename = get_filename(track, filename)
     logger.debug("filename : {0}".format(filename))
 
@@ -638,7 +644,7 @@ def download_track(track, playlist_info=None):
             set_metadata(track, filename, playlist_info)
         except Exception as e:
             logger.error("Error trying to set the tags...")
-            logger.debug(e)
+            logger.error(e)
     else:
         logger.error("This type of audio doesn't support tagging...")
 
@@ -705,7 +711,7 @@ def in_download_archive(track):
                     return True
     except IOError as ioe:
         logger.error("Error trying to read download archive...")
-        logger.debug(ioe)
+        logger.error(ioe)
 
     return False
 
@@ -724,7 +730,7 @@ def record_download_archive(track):
             file.write("{0}".format(track["id"]) + "\n")
     except IOError as ioe:
         logger.error("Error trying to write to download archive...")
-        logger.debug(ioe)
+        logger.error(ioe)
 
 
 def set_metadata(track, filename, playlist_info=None):
