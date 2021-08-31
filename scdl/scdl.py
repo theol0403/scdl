@@ -766,10 +766,11 @@ def set_metadata(track, filename, playlist_info=None):
         ):
             response = None
     if response is None:
-        raise Exception(f"Could not get cover art at {new_artwork_url}")
+        logger.error(f"Could not get cover art at {new_artwork_url}")
     with tempfile.NamedTemporaryFile() as out_file:
-        shutil.copyfileobj(response.raw, out_file)
-        out_file.seek(0)
+        if response:
+            shutil.copyfileobj(response.raw, out_file)
+            out_file.seek(0)
 
         track_created = track["created_at"]
         track_date = datetime.strptime(track_created, "%Y-%m-%dT%H:%M:%SZ")
@@ -812,7 +813,7 @@ def set_metadata(track, filename, playlist_info=None):
                 )
             elif a.__class__ == mutagen.mp4.MP4:
                 a["desc"] = track["description"]
-        if artwork_url:
+        if response:
             if a.__class__ == mutagen.flac.FLAC:
                 p = mutagen.flac.Picture()
                 p.data = out_file.read()
