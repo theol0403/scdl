@@ -7,11 +7,8 @@ Usage:
     scdl -l <track_url> [-a | -f | -C | -t | -p][-c | --force-metadata][-n <maxtracks>]\
 [-o <offset>][--hidewarnings][--debug | --error][--path <path>][--addtofile][--addtimestamp]
 [--onlymp3][--hide-progress][--min-size <size>][--max-size <size>][--remove][--no-album-tag]
-[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--original-art][--no-original]
-    scdl me (-s | -a | -f | -t | -p | -m)[-c | --force-metadata][-n <maxtracks>]\
-[-o <offset>][--hidewarnings][--debug | --error][--path <path>][--addtofile][--addtimestamp]
-[--onlymp3][--hide-progress][--min-size <size>][--max-size <size>][--remove]
-[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--no-album-tag][--original-art][--no-original]
+[--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--original-art]\
+[--no-original][--name-format]
     scdl -h | --help
     scdl --version
 
@@ -19,7 +16,6 @@ Usage:
 Options:
     -h --help                   Show this screen
     --version                   Show version
-    me                          Use the user profile from the auth_token
     -l [url]                    URL can be track/playlist/user
     -n [maxtracks]              Download the n last tracks of a playlist according to the creation date
     -s                          Download the stream of a user (token needed)
@@ -54,6 +50,7 @@ Options:
     --no-album-tag              On some player track get the same cover art if from the same album, this prevent it
     --original-art              Download original cover art
     --no-original               Do not download original file; only mp3 or m4a
+    --name-format               Specify the downloaded file name format
 """
 
 import codecs
@@ -85,7 +82,7 @@ from datetime import datetime
 from clint.textui import progress
 from docopt import docopt
 
-from scdl import ALT_CLIENT_ID, CLIENT_ID, __version__, client, utils
+from scdl import ALT_CLIENT_ID, CLIENT_ID, __version__, client, utils, write_default_config
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -95,7 +92,7 @@ logger.addFilter(utils.ColorizeFilter())
 
 arguments = None
 token = ""
-path = ""
+name_format = ""
 offset = 1
 
 url = {
@@ -125,6 +122,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     global offset
     global arguments
+    global name_format
 
     # Parse argument
     arguments = docopt(__doc__, version=__version__)
@@ -178,22 +176,12 @@ def main():
             logger.error("Invalid path in arguments...")
             sys.exit(-1)
     logger.debug("Downloading to " + os.getcwd() + "...")
+    
+    if arguments["--name-format"]:
+        name_format = arguments["--name-format"]
 
     if arguments["-l"]:
         parse_url(arguments["-l"])
-    elif arguments["me"]:
-        if arguments["-f"]:
-            download(who_am_i(), "favorites", "likes")
-        if arguments["-C"]:
-            download(who_am_i(), "commented", "commented tracks")
-        elif arguments["-t"]:
-            download(who_am_i(), "tracks", "uploaded tracks")
-        elif arguments["-a"]:
-            download(who_am_i(), "all", "tracks and reposts")
-        elif arguments["-p"]:
-            download(who_am_i(), "playlists", "playlists")
-        elif arguments["-m"]:
-            download(who_am_i(), "playlists-liked", "my and liked playlists")
 
     if arguments["--remove"]:
         remove_files()
@@ -204,6 +192,7 @@ def get_config():
     Reads the music download filepath from scdl.cfg
     """
     global token
+    global name_format
     config = configparser.ConfigParser()
 
     if "XDG_CONFIG_HOME" in os.environ:
@@ -223,10 +212,13 @@ def get_config():
     try:
         token = config["scdl"]["auth_token"]
         path = config["scdl"]["path"]
+        name_format = config["scdl"]["name_format"]
     except:
-        logger.error("Are you sure scdl.cfg is in $HOME/.config/scdl/ ?")
-        logger.error('Are both "auth_token" and "path" defined there?')
-        sys.exit(-1)
+        write_default_config()
+        config.read(config_file, "utf8")
+        token = config["scdl"]["auth_token"]
+        path = config["scdl"]["path"]
+        name_format = config["scdl"]["name_format"]
     if os.path.exists(path):
         os.chdir(path)
     else:
@@ -438,6 +430,14 @@ def try_utime(path, filetime):
         logger.error("Cannot update utime of file")
 
 
+def track_to_dict(track):
+    ts = datetime.strptime(track["created_at"], "%Y-%m-%dT%H:%M:%SZ").timestamp()
+    track['timestamp'] = ts
+    if 'user' in track:
+        for key, value in track['user'].items():
+            track[f'user__{key}'] = value
+    return track
+
 def get_filename(track, original_filename=None, aac=False):
     username = track["user"]["username"]
     title = track["title"].encode("utf-8", "ignore").decode("utf-8")
@@ -452,6 +452,9 @@ def get_filename(track, original_filename=None, aac=False):
         ts = datetime.strptime(track["created_at"], "%Y-%m-%dT%H:%M:%SZ").timestamp()
 
         title = str(int(ts)) + "_" + title
+    
+    if not arguments["--addtofile"] and not arguments["--addtimestamp"]:
+        title = name_format.format(**track_to_dict(track))
 
     ext = ".m4a" if aac else ".mp3"  # contain aac in m4a to write metadata
     if original_filename is not None:

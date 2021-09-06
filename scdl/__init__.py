@@ -4,7 +4,7 @@
 
 import os
 
-__version__ = "v1.7.1"
+__version__ = "v1.7.2"
 CLIENT_ID = "a3e059563d7fd3372b49b37f00a00bcf"
 ALT_CLIENT_ID = "2t9loNQH90kzJcsFCODdigxfp325aq4z"
 ALT2_CLIENT_ID = "NONE"
@@ -12,6 +12,7 @@ ALT2_CLIENT_ID = "NONE"
 default_config = """[scdl]
 auth_token =
 path = .
+name_format = {id}_{user__username}_{title}
 """
 
 if "XDG_CONFIG_HOME" in os.environ:
@@ -21,9 +22,12 @@ else:
 
 config_file = os.path.join(config_dir, "scdl.cfg")
 
+def write_default_config():
+    with open(config_file, "w") as f:
+        f.write(default_config)
+
 if not os.path.exists(config_file):
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
 
-    with open(config_file, "w") as f:
-        f.write(default_config)
+    write_default_config()
