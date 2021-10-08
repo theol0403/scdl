@@ -4,7 +4,7 @@
 
 import os
 
-__version__ = "v1.7.2"
+__version__ = "v2.0.0"
 CLIENT_ID = "a3e059563d7fd3372b49b37f00a00bcf"
 ALT_CLIENT_ID = "2t9loNQH90kzJcsFCODdigxfp325aq4z"
 ALT2_CLIENT_ID = "NONE"
@@ -12,7 +12,7 @@ ALT2_CLIENT_ID = "NONE"
 default_config = """[scdl]
 auth_token =
 path = .
-name_format = {id}_{user__username}_{title}
+name_format = {id}_{user[username]}_{title}
 """
 
 if "XDG_CONFIG_HOME" in os.environ:
