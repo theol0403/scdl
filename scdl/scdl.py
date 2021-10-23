@@ -8,7 +8,7 @@ Usage:
 [-o <offset>][--hidewarnings][--debug | --error][--path <path>][--addtofile][--addtimestamp]
 [--onlymp3][--hide-progress][--min-size <size>][--max-size <size>][--remove][--no-album-tag]
 [--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--original-art]\
-[--no-original][--name-format <format>]
+[--no-original][--name-format <format>][--client-id <id>][--auth-token <token>][--overwrite]
     scdl -h | --help
     scdl --version
 
@@ -51,6 +51,9 @@ Options:
     --original-art              Download original cover art
     --no-original               Do not download original file; only mp3 or m4a
     --name-format [format]      Specify the downloaded file name format
+    --client-id [id]            Specify the client_id to use
+    --auth-token [token]        Specify the auth token to use
+    --overwrite                 Overwrite file if it already exists
 """
 
 import codecs
@@ -94,6 +97,7 @@ logger.addFilter(utils.ColorizeFilter())
 
 client = None
 arguments = None
+client_id = CLIENT_ID
 token = ""
 name_format = ""
 offset = 1
@@ -110,6 +114,8 @@ def main():
     global offset
     global arguments
     global name_format
+    global client_id
+    global token
 
     # Parse argument
     arguments = docopt(__doc__, version=__version__)
@@ -124,11 +130,17 @@ def main():
 
     logger.info("Soundcloud Downloader")
     logger.debug(arguments)
+
+    if arguments["--client-id"]:
+        client_id = arguments["--client-id"]
+
+    if arguments["--auth-token"]:
+        token = arguments["--auth-token"]
     
-    client = SoundCloud(CLIENT_ID, token if token else None)
+    client = SoundCloud(client_id, token if token else None)
     
     if not client.is_client_id_valid():
-        raise ValueError(f"CLIENT_ID: '{CLIENT_ID}' is not valid")
+        raise ValueError(f"CLIENT_ID: '{client_id}' is not valid")
     
     if token and not client.is_auth_token_valid():
         raise ValueError(f"auth_token is not valid")
@@ -466,7 +478,7 @@ def get_track_m3u8(track: BasicTrack, aac=False):
 
     if url is not None:
         headers = {"Authorization": f"OAuth {token}"} if token else {}
-        r = requests.get(url, params={"client_id": CLIENT_ID}, headers=headers)
+        r = requests.get(url, params={"client_id": client_id}, headers=headers)
         logger.debug(r.url)
         return r.json()["url"]
 
@@ -582,12 +594,18 @@ def already_downloaded(track: BasicTrack, title: str, filename: str):
 
     if os.path.isfile(filename):
         already_downloaded = True
+        if arguments["--overwrite"]:
+            os.remove(filename)
+            already_downloaded = False
     if (
         arguments["--flac"]
         and can_convert(filename)
         and os.path.isfile(filename[:-4] + ".flac")
     ):
         already_downloaded = True
+        if arguments["--overwrite"]:
+            os.remove(filename[:-4] + ".flac")
+            already_downloaded = False
     if arguments["--download-archive"] and in_download_archive(track):
         already_downloaded = True
 
