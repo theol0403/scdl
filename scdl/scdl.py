@@ -8,7 +8,7 @@ Usage:
 [-o <offset>][--hidewarnings][--debug | --error][--path <path>][--addtofile][--addtimestamp]
 [--onlymp3][--hide-progress][--min-size <size>][--max-size <size>][--remove][--no-album-tag]
 [--no-playlist-folder][--download-archive <file>][--extract-artist][--flac][--original-art]\
-[--no-original][--name-format]
+[--no-original][--name-format <format>]
     scdl -h | --help
     scdl --version
 
@@ -50,7 +50,7 @@ Options:
     --no-album-tag              On some player track get the same cover art if from the same album, this prevent it
     --original-art              Download original cover art
     --no-original               Do not download original file; only mp3 or m4a
-    --name-format               Specify the downloaded file name format
+    --name-format [format]      Specify the downloaded file name format
 """
 
 import codecs
