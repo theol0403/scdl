@@ -477,7 +477,9 @@ def get_track_m3u8(track: BasicTrack, aac=False):
                 url = transcoding.url
 
     if url is not None:
-        headers = {"Authorization": f"OAuth {token}"} if token else {}
+        headers = client.get_default_headers()
+        if token:
+            headers["Authorization"] = f"OAuth {token}"
         r = requests.get(url, params={"client_id": client_id}, headers=headers)
         logger.debug(r.url)
         return r.json()["url"]
