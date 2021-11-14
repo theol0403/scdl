@@ -712,6 +712,7 @@ def set_metadata(track: BasicTrack, filename: str, playlist_info=None):
                     break
 
         audio = mutagen.File(filename, easy=True)
+        audio.delete()
         audio["title"] = track.title
         audio["artist"] = track.artist
         if track.genre:
