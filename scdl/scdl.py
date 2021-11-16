@@ -78,7 +78,7 @@ from datetime import datetime
 import mutagen
 from mutagen.easymp4 import EasyMP4
 
-EasyMP4.RegisterTextKey("website", "\xa9cmt")
+EasyMP4.RegisterTextKey("website", "purl")
 import requests
 from clint.textui import progress
 from docopt import docopt
@@ -711,6 +711,7 @@ def set_metadata(track: BasicTrack, filename: str, playlist_info=None):
                     track.title = artist_title[1].strip()
                     break
 
+        EasyMP4.RegisterTextKey('website', 'purl')
         audio = mutagen.File(filename, easy=True)
         audio.delete()
         audio["title"] = track.title
@@ -737,7 +738,7 @@ def set_metadata(track: BasicTrack, filename: str, playlist_info=None):
                     encoding=3, lang="ENG", text=track.description
                 )
             elif a.__class__ == mutagen.mp4.MP4:
-                a["desc"] = track.description
+                a["\xa9cmt"] = track.description
         if response:
             if a.__class__ == mutagen.flac.FLAC:
                 p = mutagen.flac.Picture()
